@@ -6,6 +6,7 @@ import grpc
 
 import py_grpc_prometheus.grpc_utils as grpc_utils
 from py_grpc_prometheus.server_metrics import GRPC_SERVER_HANDLED_HISTOGRAM
+from py_grpc_prometheus.server_metrics import GRPC_SERVER_INFLIGHT_REQUESTS
 from py_grpc_prometheus.server_metrics import GRPC_SERVER_STARTED_COUNTER
 from py_grpc_prometheus.server_metrics import GRPC_SERVER_STREAM_MSG_RECEIVED
 from py_grpc_prometheus.server_metrics import GRPC_SERVER_STREAM_MSG_SENT
@@ -38,6 +39,13 @@ class PromServerInterceptor(grpc.ServerInterceptor):
     def metrics_wrapper(behavior, request_streaming, response_streaming):
       def new_behavior(request_or_iterator, servicer_context):
         start = default_timer()
+
+        inflight_gauge = GRPC_SERVER_INFLIGHT_REQUESTS.labels(
+            grpc_service=grpc_service_name,
+            grpc_method=grpc_method_name)
+        inflight_gauge.inc()
+        servicer_context.add_callback(lambda *args, **kwargs: inflight_gauge.dec())
+
         grpc_type = grpc_utils.get_method_type(request_streaming, response_streaming)
         try:
           if request_streaming:
@@ -113,7 +121,9 @@ class PromServerInterceptor(grpc.ServerInterceptor):
 
       return new_behavior
 
-    optional_any = self._wrap_rpc_behavior(continuation(handler_call_details), metrics_wrapper)
+    optional_any = self._wrap_rpc_behavior(
+        continuation(handler_call_details),
+        metrics_wrapper)
 
     return optional_any
 

@@ -1,4 +1,5 @@
 from prometheus_client import Counter
+from prometheus_client import Gauge
 from prometheus_client import Histogram
 
 GRPC_SERVER_STARTED_COUNTER = Counter(
@@ -21,6 +22,11 @@ GRPC_SERVER_HANDLED_HISTOGRAM = Histogram(
     "Histogram of response latency (seconds) of gRPC that had been application-level "
     "handled by the server.",
     ["grpc_type", "grpc_service", "grpc_method"])
+
+GRPC_SERVER_INFLIGHT_REQUESTS = Gauge(
+    "grpc_server_inflight_requests",
+    "Inflight RPCs active on the server.",
+    ["grpc_service", "grpc_method"])
 
 
 # Legacy metrics for backward compatibility
