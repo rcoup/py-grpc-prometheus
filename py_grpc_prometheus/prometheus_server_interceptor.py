@@ -14,12 +14,16 @@ import py_grpc_prometheus.server_metrics
 # Legacy metrics
 from py_grpc_prometheus.server_metrics import LEGACY_GRPC_SERVER_HANDLED_LATENCY_SECONDS
 
+DEFAULT_SKIP_METHODS=(
+  'grpc.health.v1.Health:Check',
+)
 
 class PromServerInterceptor(grpc.ServerInterceptor):
 
-  def __init__(self, enable_handling_time_histogram=False, legacy=False):
+  def __init__(self, enable_handling_time_histogram=False, legacy=False, skip_methods=DEFAULT_SKIP_METHODS):
     self._enable_handling_time_histogram = enable_handling_time_histogram
     self._legacy = legacy
+    self._skip_methods = set(skip_methods or [])
     self._grpc_server_handled_total_counter = \
       py_grpc_prometheus.server_metrics.get_grpc_server_handled_counter(self._legacy)
 
@@ -35,6 +39,9 @@ class PromServerInterceptor(grpc.ServerInterceptor):
     """
 
     grpc_service_name, grpc_method_name, _ = grpc_utils.split_method_call(handler_call_details)
+
+    if f"{grpc_service_name}:{grpc_method_name}" in self._skip_methods:
+      return continuation(handler_call_details)
 
     def metrics_wrapper(behavior, request_streaming, response_streaming):
       def new_behavior(request_or_iterator, servicer_context):
